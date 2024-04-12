@@ -33,14 +33,18 @@ def verify_transitions(transitions):
             transitions_dict[transition[0]] = {
                 transition[1]: transition[2]
             }
+            print(f"TRANSIÇÃO ADICIONADA: {transition[0]} -> {transition[1]} -> {transition[2]}")
         else:
             if transition[1] not in transitions_dict[transition[0]]:
+                print(f"TRANSIÇÃO ADICIONADA em elseif: {transition[0]} -> {transition[1]} -> {transition[2]}")
                 transitions_dict[transition[0]][transition[1]] = transition[2]
             else:
-                transitions_dict[transition[0]][transition[1]] += transition[2]
+                if transition[2] not in transitions_dict[transition[0]][transition[1]]:
+                    print(f"TRANSIÇÃO ADICIONADA em elseelseif: {transition[0]} -> {transition[1]} -> {transition[2]}")
+                    transitions_dict[transition[0]][transition[1]] += transition[2]
         if transition[2] not in transitions_dict:
             transitions_dict[transition[2]] = {}
-    
+    print(transitions_dict)
     return transitions_dict
 
 def determine_automato(states_number, initial_state, final_states, alphabet, transitions):
@@ -56,7 +60,8 @@ def determine_automato(states_number, initial_state, final_states, alphabet, tra
                             new_transitions[destiny_states][tr] = transitions[destiny_state][tr]
                         else:
                             try:
-                                new_transitions[destiny_states][tr] += transitions[destiny_state][tr]
+                                if transitions[destiny_state][tr] not in new_transitions[destiny_states][tr]:
+                                    new_transitions[destiny_states][tr] += transitions[destiny_state][tr]
                             except:
                                 print(f"Transição de {destiny_state} por {tr} não existe")
                 
@@ -95,18 +100,45 @@ def visit_reachable_states(origin_state, transitions, visited_states):
             visit_reachable_states(state, transitions, visited_states)
     return visited_states
 
-def print_final_result(states_number, initial_state, final_states, alphabet, transitions):
-    #TODO: Conversar com Prof. Jerusa sobre formato de saída.
-    transitions_string = ""
-    for state in transitions.keys():
-        for key, value in transitions[state].items():
-            transitions_string += f"{state},{key},{value};"
-        transitions_string = transitions_string[:-1]
+def create_initial_state_string(initial_state):
+    initial_state_strng = "{" + initial_state + "}"
     
+    return initial_state_strng
+
+def create_final_states_string(final_states):
     final_states_string = "{"
     for state in final_states:
         if state == final_states[-1]:
             final_states_string += ("{"  + state + "}}")
         else:
             final_states_string += ("{"  + state + "},")
-    print(str(states_number) + ";{" + initial_state + "};" + final_states_string + ";{" + str(alphabet) + "};" + transitions_string)
+    
+    return final_states_string
+
+def create_alphabet_string(alphabet):
+    alphabet_string = "{"
+    for symbol in alphabet:
+        if symbol == alphabet[-1]:
+            alphabet_string += symbol + "}"
+        else:
+            alphabet_string += symbol + ","
+            
+    return alphabet_string
+
+def create_transitions_string(transitions):
+    transitions_string = ""
+    for state in transitions.keys():
+        for key, value in transitions[state].items():
+            transitions_string += "{" + f"{state}" + "}," + f"{key}," + "{" + f"{value}" + "};"
+    transitions_string = transitions_string[:-1]
+    
+    return transitions_string
+
+def print_final_result(states_number, initial_state, final_states, alphabet, transitions):
+    states_number_string = str(states_number)
+    initial_state_string = create_initial_state_string(initial_state)
+    final_states_string = create_final_states_string(final_states)
+    alphabet_string = create_alphabet_string(alphabet)
+    transitions_string = create_transitions_string(transitions)
+    
+    return(states_number_string + ";" + initial_state_string + ";" + final_states_string + ";" + alphabet_string + ";" + transitions_string)
