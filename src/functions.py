@@ -11,11 +11,11 @@ def handle_input():
         if type(states_number) == int:
             break
 
-    print("Inputed states_number:", states_number)
-    print("Inputed initial_state:", initial_state)
-    print("Inputed final_states:", final_states)
-    print("Inputed alphabet:", alphabet)
-    print("Inputed transitions:", transitions)
+    #print("Inputed states_number:", states_number)
+    #print("Inputed initial_state:", initial_state)
+    #print("Inputed final_states:", final_states)
+    #print("Inputed alphabet:", alphabet)
+    #print("Inputed transitions:", transitions)
 
     return states_number, initial_state, final_states, alphabet, transitions
 
@@ -33,19 +33,62 @@ def verify_transitions(transitions):
             transitions_dict[transition[0]] = {
                 transition[1]: transition[2]
             }
-            print(f"TRANSIÇÃO ADICIONADA: {transition[0]} -> {transition[1]} -> {transition[2]}")
         else:
             if transition[1] not in transitions_dict[transition[0]]:
-                print(f"TRANSIÇÃO ADICIONADA em elseif: {transition[0]} -> {transition[1]} -> {transition[2]}")
                 transitions_dict[transition[0]][transition[1]] = transition[2]
             else:
                 if transition[2] not in transitions_dict[transition[0]][transition[1]]:
-                    print(f"TRANSIÇÃO ADICIONADA em elseelseif: {transition[0]} -> {transition[1]} -> {transition[2]}")
                     transitions_dict[transition[0]][transition[1]] += transition[2]
         if transition[2] not in transitions_dict:
             transitions_dict[transition[2]] = {}
-    print(transitions_dict)
+    
     return transitions_dict
+
+def verify_transitions_with_epsilon(transitions_dict, alphabet):
+    new_transitions_dict = {}
+    for state in transitions_dict.keys():
+        new_state = create_state_by_visiting_states_by_epsilon(transitions_dict, state)
+        new_transitions_dict[new_state] = {}       
+    for state in new_transitions_dict.keys():
+        for transition in alphabet:
+            new_transitions_dict[state][transition] = create_transitions_by_visiting_states_by_epsilon(
+                transitions_dict, state, transition)
+        
+    new_transitions_dict = remove_epsilon_transitions(new_transitions_dict)
+    
+    return new_transitions_dict
+
+def create_state_by_visiting_states_by_epsilon(transitions_dict, origin_state, new_state=""):
+    if new_state == "":
+        new_state = origin_state
+
+    if "&" in transitions_dict[origin_state]:
+        for state in transitions_dict[origin_state]["&"]:
+            if state not in new_state:
+                new_state += state
+                return create_state_by_visiting_states_by_epsilon(transitions_dict, state, new_state)
+    else:
+        return new_state
+
+def create_transitions_by_visiting_states_by_epsilon(transitions_dict, origin_state, transition, destiny_state=""):
+    for sub_state in origin_state:
+        if transition in transitions_dict[sub_state]:
+            for stt in transitions_dict[sub_state][transition]:
+                if stt not in destiny_state:
+                    destiny_state += stt
+                    destiny_state = create_state_by_visiting_states_by_epsilon(transitions_dict, stt, destiny_state)      
+            
+    return destiny_state
+
+def remove_epsilon_transitions(transitions_dict):
+    new_transitions_dict = {}
+    for state in transitions_dict.keys():
+        new_transitions_dict[state] = {}
+        for transition in transitions_dict[state].keys():
+            if transition != "&" and transitions_dict[state][transition] != "":
+                new_transitions_dict[state][transition] = transitions_dict[state][transition]
+    
+    return new_transitions_dict
 
 def determine_automato(states_number, initial_state, final_states, alphabet, transitions):
     new_transitions = {}
@@ -78,13 +121,14 @@ def mark_final_states(final_states, transitions):
                 if fs in destiny_state:
                     if destiny_state not in new_fs:
                         new_fs.append(destiny_state)
-
+    new_fs.sort()
+    
     return new_fs
 
 def remove_unreachable_states(states_number, initial_state, final_states, alphabet, transitions):
     visited_states = []
     visited_states = visit_reachable_states(initial_state, transitions, visited_states)
-    
+
     for state in transitions.copy():
         if state not in visited_states:
             transitions.pop(state)
