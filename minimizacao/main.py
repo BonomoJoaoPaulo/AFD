@@ -78,13 +78,20 @@ def remove_dead_states(states, final_states, transitions):
                 not_dead_states.append(state)
                 break
     
-    for state in states:
-        if state not in not_dead_states:
-            transitions.pop(state)
-    
+    if len(not_dead_states) != len(states):
+        transitions_without_dead_states = {state: {} for state in not_dead_states}
+        for state in states:
+            if state not in not_dead_states:
+                for s, trans in transitions.items():
+                        for symbol in trans.keys():
+                            if transitions[s][symbol] in not_dead_states:
+                                transitions_without_dead_states[s][symbol] = transitions[s][symbol]
+    else:
+        transitions_without_dead_states = transitions
+        
     states_number = len(not_dead_states)
-    
-    return states_number, not_dead_states, transitions
+
+    return states_number, not_dead_states, transitions_without_dead_states
 
 def remove_equivalent_states(states, final_states, alphabet, transitions):
     ec1 = final_states 
@@ -99,8 +106,13 @@ def remove_equivalent_states(states, final_states, alphabet, transitions):
             new_equivalence_classes = []
             for state in class_:
                 for symbol in alphabet:
-                    auxiliar_trans_dict[state][symbol] = verify_ec_of_state(transitions[state][symbol], 
-                                                                            equivalence_classes)
+                    try:
+                        auxiliar_trans_dict[state][symbol] = verify_ec_of_state(transitions[state][symbol], 
+                                                                                equivalence_classes)
+                    except:
+                        #print(f"Não há transições por {symbol} em {state}")
+                        pass
+
                 if auxiliar_trans_dict[state] not in equivalence_transitions:
                     equivalence_transitions.append(auxiliar_trans_dict[state])
                     new_equivalence_classes.append([state])
@@ -109,6 +121,7 @@ def remove_equivalent_states(states, final_states, alphabet, transitions):
                     new_equivalence_classes[id].append(state)
 
             for ec in new_equivalence_classes:
+                ec.sort()
                 if ec not in equivalence_classes:
                     equivalence_classes = [oec for oec in equivalence_classes if ec[0] not in oec]
                     equivalence_classes.append(ec)
@@ -197,4 +210,4 @@ if __name__ == "__main__":
     states_number, states, transitions = remove_unreachable_states(initial_state, final_states, transitions)
     states_number, states, transitions = remove_dead_states(states, final_states, transitions)
     states_number, states, final_states, transitions = remove_equivalent_states(states, final_states, alphabet, transitions)
-    print(print_final_result(states_number, initial_state, final_states, alphabet, transitions, True))
+    print(print_final_result(states_number, initial_state, final_states, alphabet, transitions, False))
