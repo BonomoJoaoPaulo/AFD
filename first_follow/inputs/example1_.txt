@@ -1,0 +1,10 @@
+P -> K V C
+K -> c K
+K -> ''
+V -> v V
+V -> F
+F -> f P i F
+F -> ''
+C -> b V C e
+C -> m i C
+C -> ''

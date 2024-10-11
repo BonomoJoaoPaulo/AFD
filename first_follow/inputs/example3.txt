@@ -1,0 +1,1 @@
+ X = S; S = SuA; S = A; A = AvB; A = B; B = nB; B = oSc; B = t; B = f;

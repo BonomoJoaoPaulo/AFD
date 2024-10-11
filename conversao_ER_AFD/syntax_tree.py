@@ -1,9 +1,71 @@
 from collections import deque # Biblioteca para usar a estrutura de dados deque.
-# from PrettyPrint import PrettyPrintTree # Biblioteca para printar a Árvore de Sintaxe Estendida.
+from typing import List
 
-from state import State
-from transition import Transition
-from node import Node
+from automata import State
+from automata import Transition
+
+
+class Node:
+    """
+    Classe para representar um nó da Árvore de Sintaxe Estendida.
+    """
+    def __init__(self, symbol: str):
+        """
+        Método construtor da classe.
+        Os atributos da classe são:
+            - symbol: símbolo do nó;
+            - nullable: é verdadeira para um nó 'n' da árvore sintática sse a subexpressão representada por 'n'
+        tiver ε em sua linguagem (pode-se tornar a subexpressão nula);
+            - first_pos: é o conjunto de posições na subárvore com raiz em 'n' que corresponde ao primeiro
+        símbolo de pelo menos uma cadeia na linguagem da subexpressão cuja raiz é 'n'.
+            - last_pos: é o conjunto de posições na subárvore com raiz em 'n' que corresponde ao último símbolo
+        de pelo menos uma cadeia na linguagem da subexpressão cuja raiz é 'n'.
+            - id: identificador do nó.
+            - children: lista de filhos do nó, neste caso o atributo precisa ser privado.
+        """
+        self.symbol = symbol
+        self.nullable = symbol in ('*', '&')
+        self.first_pos = None
+        self.last_pos = None
+        self.id = None
+        self.__children = []
+
+    @property
+    def children(self) -> 'list[Self]':
+        """
+        Retona a lista de filhos do nó.
+        """
+        return self.__children
+    
+    @property
+    def first_child(self) -> 'Self | None':
+        """
+        Retorna o primeiro filho do nó (c1).
+        """
+        return self.__get_child(0)
+
+    @property
+    def last_child(self) -> 'Self | None':
+        """
+        Retorna o segundo filho do nó (c2).
+        """
+        return self.__get_child(1)
+
+    def __get_child(self, index: int) -> 'Self | None':
+        """
+        Método reutilizável para obter um filho da lista especificado pelo seu index.
+        """
+        try:
+            return self.__children[index]
+        except:
+            return None
+
+    def append_child(self, child: 'Self') -> None:
+        """
+        Método para adicionar um filho ao nó.
+        """
+        self.__children.append(child)
+
 
 class SyntaxTreeBuilder():
     """
@@ -35,7 +97,7 @@ class SyntaxTree:
     """
     Classe para representar a Árvore de Sintaxe Estendida.
     """
-    def __init__(self, regex: str, operators: tuple[str]):
+    def __init__(self, regex: str, operators):
         """
         Método construtor da classe.
         Os atributos da classe são:
@@ -45,7 +107,7 @@ class SyntaxTree:
             - completed_regex: expressão regular completada com os símbolos '#' e '.';
             - __id_counter: contador de identificadores dos nós da árvore;
             - __leaf_nodes: dicionário que mapeia os identificadores dos nós folha para os nós folha;
-            - __followpos: dicionário que mapeia os identificadores dos nós folha para os conjuntos de posições
+            - __followpos: dicionário que mapeia os followpos para os conjuntos de posições.
         """
         self.__define_alphabet(regex, operators)
         self.__complete_regex(regex)
@@ -60,18 +122,17 @@ class SyntaxTree:
         self.__process_in_post_order(self.root)
         self.__create_followpos(self.root)
     
-    def __define_alphabet(self, regex: str, operators: dict[str | str]) -> None:
+    def __define_alphabet(self, regex: str, operators) -> None:
         """
-        We define here wich are the symbols of the Regex
+        Define o alfabeto (os símbolos) da expressão regular.
         """
         alphabet = {i for i in f'({regex})#' if i not in operators.values()}
         self.alphabet = alphabet
-        # print(f'Alphabet defined: {self.alphabet}')
-
     
     def __complete_regex(self, regex: str) -> None:
         """
-        Adds the final symmbol ('#') and the concats ('.') in the regex 
+        Adiciona o terminal '#' ao final da ER e 
+        o símbolo de concatenação ('.') nos devidos locais da ER.
         """
         masked_regex = f'({regex})#'
         new_regex = ''
@@ -88,65 +149,61 @@ class SyntaxTree:
                 new_regex += item
 
         self.completed_regex = f'{new_regex}#'
-        # print(f"Regex's completeness result: {self.completed_regex}")
-
 
     def __create_tree(self, regex: str, root: Node) -> None:
         """
-        Recursive function that creates nodes from a root one
+        Cria os nós da Árvore de Sintaxe Estendida a partir da expressão regular e do nó raiz.
+        
+        No caso base, a expressão regular é um símbolo.
+        Caso contrário, a função é chamada recursivamente da seguinte forma:
+            1 - Encontramos a posição do operador que pode dividir a expressão regular;
+            2 - Esse operador será a raiz da nova subárvore;
+            3 - Dividimos a expressão regular em duas partes;
+            4 - Criamos novos nós e chamamos recursivamente para cada um.
         """
-        # Base case (we have just one symbol)
         if len(regex) == 1:
             root.symbol = regex
-        # If we have operations -> we call this function recursvely
         else:
-            # 1 - We find out the position of the operator which can split the regex
             operator, position = self.__search_operator_position(regex)
-            # 2 - This operator will be the root of the new subtree
             root.symbol = operator
-            # 3 - We get the splitted parts 
             left, right = self.__divide_regex(regex, position)
-            # print(f'Calling recursively: {left}')
-            # print(f'Calling recursively: {right}')
-            # 4 - We create new nodes and call recursively to each one
             root.append_child(Node(None))
             self.__create_tree(left, root.first_child)
             if right:
                 root.append_child(Node(None))
                 self.__create_tree(right, root.last_child)
 
-
     def __search_operator_position(self, regex):
         """
-        Considering the regex, we found out the position of the last
-        occurrence of one of the operators, in inverse order of precedence
+        Considerando a expressão regular, encontra a posição da última
+        ocorrência de um dos operadores, em ordem inversa de precedência.
+        
+        Neste método, nós buscamos na ordem inversa da precedência natural.
         """
-        # print(f'Searching operator {regex}')
-        # We search in the inverse order of natural precedence
         for oper in ['|', '.', '*']:
             self.aux_stack.clear()
             for index, item in enumerate(regex[::-1]):
-                # We are passign through a new level of depth
-                if item == ')': self.aux_stack.append(item)
-                # We are leaving a deeper level
-                elif item == '(': self.aux_stack.pop()
-                # We could only consider current level of depth
+                if item == ')':
+                    self.aux_stack.append(item)
+
+                elif item == '(':
+                    self.aux_stack.pop()
+
                 elif not bool(self.aux_stack):
                     if item == oper:
                         return oper, len(regex) - index - 1
 
-
-    def __divide_regex(self, regex: str, position: int) -> tuple[str, str]:
+    def __divide_regex(self, regex: str, position: int): #-> tuple[str, str]:
         """
-        We split the regex in two parts based on the position of the
-        operator with less precedence
+        Divide a expressão regular em duas partes com base na posição
+        do operador com menor precedência.
+        
+        Se a posição for zero, estamos em um caso de operação de concatenação.
         """
-        # If position is zero, we are in case of a * operation
         left = regex[:position]
         right = regex[position + 1 :] if position > 0 else None
 
         new_list = []
-        # 1 - We discard unecessary parenthesis
         for i in [left, right]:
             if i:
                 has_extra, carac = self.__has_extra_parenthesis(i)
@@ -164,22 +221,19 @@ class SyntaxTree:
 
         return new_list
 
-
-    def __has_extra_parenthesis(self, regex: str) -> (bool, str):
+    def __has_extra_parenthesis(self, regex: str): #-> tuple[bool, str]:
         """
-        Analyses whether the regex contains extra parenthesis
+        Analisa se a expressão regular contém parênteses extras.
         """        
         stack = deque()
         for item in regex:
             if item == '(': stack.append(item)
             elif item == ')':
-                # If empty while reading ')'
                 if not bool(stack):
                     return True, ')'
                 else:
                     stack.pop()
 
-        # To be validated, stack must be empty
         is_empty = not bool(stack)
 
         return not is_empty, '(' if not is_empty else None
@@ -187,8 +241,8 @@ class SyntaxTree:
 
     def __process_in_post_order(self, node: Node) -> None:
         """
-        Recursive method to set firstpos and lastpos;
-        Goes through the tree in post-order
+        Método recursivo para processar firstpos e lastpos dos nós da árvore:
+            - Percorre a árvore em pós-ordem.
         """
         if node.first_child is not None:
             self.__process_in_post_order(node.first_child)
@@ -198,10 +252,9 @@ class SyntaxTree:
 
         self.__set_firstpos_and_lastpos(node)
 
-
     def __set_firstpos_and_lastpos(self, node: Node) -> None:
         """
-        Atribute values to firstpos, lastpos and nullable attributes of nodes
+        'Seta' os valores de firstpos, lastpos e nullable dos nós da árvore.
         """
         if node.symbol == '&':
             node.nullable = True
@@ -261,10 +314,11 @@ class SyntaxTree:
             node.first_pos = [node.id]
             node.last_pos = [node.id]
 
-
     def __create_followpos(self, node: Node) -> None:
         """
-        Create the followpos for each node with a symbol from expression alphabet in the tree
+        Cria o followpos para cada nó com um símbolo do alfabeto da expressão na árvore:
+            - Também 'seta' o followpos para os nós que representam a operação de concatenação e estrela;
+            - Pós-ordem.
         """
         # traverse in post-order
         if node.first_child is not None:
@@ -275,10 +329,9 @@ class SyntaxTree:
 
         if node.symbol in ['.', '*']: self.__set_followpos(node)
 
-    
     def __set_followpos(self, node: Node) -> None:
         """
-        Set followpos to concat or star node
+        'Seta' o followpos para os nós que representam a operação de concatenação e estrela.
         """
         if node.symbol == '*':
             for n in node.last_pos:
@@ -289,13 +342,15 @@ class SyntaxTree:
                 for id in node.last_child.first_pos:
                     self.__followpos[n].add(id)
 
-
     def to_afd(self):
-        # print('-'*30)
-        # print(f'LEAF NODES: {self.__leaf_nodes}')
-        # print('-'*30)
-        # print(f'FOLLOWPOS: {self.__followpos}')
-        # print('-'*30)
+        """
+        Método que converte a Árvore de Sintaxe Estendida em um Autômato Finito Determinístico.
+            - states: lista de estados do AFD;
+            - visited_sates: lista de estados visitados;
+            - final_states: lista de estados finais;
+            - transitions: lista de transições do AFD;
+            - initial_state: estado inicial do AFD.
+        """
         states = [self.__get_initial_state()]
         visited_states = []
         final_states = []
@@ -304,82 +359,44 @@ class SyntaxTree:
         
         final_id = list(self.__leaf_nodes.keys())[-1]
 
-        # print(f'ID FINAL = {final_id}')
+        # Percorre a lista de estados até que todos os estados sejam visitados.
         while states:
             state = states.pop(0)
             visited_states.append(state)
 
-            # print(f'CURRENT STATE: {state}')
-            # Checking if it's a final state
+            # Verifica se o estado é um estado final.
             if final_id in state.source:
                 final_states.append(state)
             
+            # Cria as transições do estado.
             new_transitions = self.__create_transitions(state)
             transitions.extend(new_transitions)
 
+            # Adiciona os estados alvos das transições à lista de estados.
             for transition in new_transitions:
                 if transition.target != []:
                     new_state = transition.target
                     state = State(new_state)
-                    # print(f'STATE: {state}')
-                    # print(f'VISITED: {visited_states}')
                     if not state in visited_states and not state in states:
                         states.append(state)
 
-        # print(f'INITIAL = {initial_state}') 
-        # print(f'VISITED = {visited_states}')
-        # print(f'ALPHABET = {self.alphabet}')
-        # print(f'FINALS = {final_states}')
-        # print(f'TRANSITIONS = {transitions}')
+        # Retorna a representação do AFD.
         return self.__format_str(initial_state, visited_states, final_states, transitions)
     
-
-    def __format_str(self,
-                     intitial: list[int],
-                     all: list[State],
-                     finals: list[State],
-                     transitions: list[Transition]) -> str:
-        af_str = ''
-
-        # Quantity of states
-        af_str += f'{len(all)};'
-        # Initial state
-        initial_str = ",".join([str(i) for i in intitial])
-        af_str += f'{{{initial_str}}};'
-        # Final states
-        
-        curr_str = []
-        for final in finals:
-            curr_str.append(f'{{{",".join([str(i) for i in final.source])}}}')
-        af_str += f'{{{",".join(curr_str)}}};'
-        # Alphabet
-        self.alphabet.remove('#')
-        if '&' in self.alphabet:
-            self.alphabet.remove('&')
-        af_str += f'{{{",".join(sorted([letter for letter in self.alphabet]))}}};'
-        #Transitions
-        for transition in transitions:
-            if transition.symbol != '#':
-                source = f'{{{",".join([str(i) for i in transition.source.source])}}}'
-                symbol = f'{transition.symbol}'
-                target = f'{{{",".join([str(i) for i in transition.target])}}}'
-                af_str += f'{source},{symbol},{target};'
-
-            # if transition.symbol != '#':
-            #     source = f'{{{",".join([i for i in transition.source.source])}}}'
-            #     af_str += f'{{{transition.source}}}'
-        print(af_str[:-1])
-
-
-
-    def __create_transitions(self, state: list[int]):
+    def __get_initial_state(self) -> State:
         """
-        Creating transitions
+        Retorna o estado inicial do autômato finito.
+        """
+        return State(self.root.first_pos)
+    
+    def __create_transitions(self, state: List[int]):
+        """
+        Método privado que cria as transições de um estado.
+        
+        O método recebe um estado,
         """
         transitions = {}
-        # print(f'STATE: {state}')
         for id in state.source:
-            # Create transition by symbol
             symbol = self.__leaf_nodes[id].symbol
             followpos = self.__followpos[id]
             if symbol in transitions:
@@ -397,19 +414,44 @@ class SyntaxTree:
         
         return ordered_transitions
 
-
-    def __get_initial_state(self) -> State:
-        return State(self.root.first_pos)
-
-
-    def print_tree(self):
+    def __format_str(self,
+                     intitial: List[int],
+                     all: List[State],
+                     finals: List[State],
+                     transitions: List[Transition]) -> str:
         """
-        Neste método, a biblioteca PrettyPrintTree é usada para printar de forma clara
-        a Árvore de Sintaxe Estendida criada.
+        Gera o autômato finito determinístico em formato de string para printar no formato
+        especificado pelo VPL.
         """
+        af_str = ''
+
+        # QUANTIDADE DE ESTADOS
+        af_str += f'{len(all)};'
         
-        #pretty_print_tree = PrettyPrintTree(
-        #    lambda x: x.children,
-        #    lambda x: f'{x.first_pos if x.first_pos else x.id} {x.symbol} {x.last_pos if x.last_pos else x.id}' 
-        #)
-        #pretty_print_tree(self.root)
+        # ESTADO INICIAL
+        initial_str = ",".join([str(i) for i in intitial])
+        
+        af_str += f'{{{initial_str}}};'
+
+        # ESTADOS FINAIS        
+        curr_str = []
+        for final in finals:
+            curr_str.append(f'{{{",".join([str(i) for i in final.source])}}}')
+        af_str += f'{{{",".join(curr_str)}}};'
+        
+        # ALFABETO
+        self.alphabet.remove('#')
+        if '&' in self.alphabet:
+            self.alphabet.remove('&')
+        af_str += f'{{{",".join(sorted([letter for letter in self.alphabet]))}}};'
+        
+        # TRANSIÇÕES
+        for transition in transitions:
+            if transition.symbol != '#':
+                source = f'{{{",".join([str(i) for i in transition.source.source])}}}'
+                symbol = f'{transition.symbol}'
+                target = f'{{{",".join([str(i) for i in transition.target])}}}'
+                af_str += f'{source},{symbol},{target};'
+
+        # PRINTA O AUTÔMATO FINITO DETERMINÍSTICO GERADO
+        print(af_str[:-1])

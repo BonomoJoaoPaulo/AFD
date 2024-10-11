@@ -1,0 +1,8 @@
+E -> T A
+A -> m T A
+A -> ''
+T -> F B
+B -> v F B
+B -> ''
+F -> i
+F -> o E c

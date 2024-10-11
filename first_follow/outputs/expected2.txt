@@ -1,0 +1,1 @@
+First(P) = {b, c, m, t, v, &}; First(K) = {c, t, v, &}; First(T) = {t, &}; First(V) = {v, &}; First(L) = {m, &}; Follow(P) = {$}; Follow(K) = {e, m, $}; Follow(T) = {m, v, $};  Follow(V) = {e, m, $}; Follow(L) = {e, $};

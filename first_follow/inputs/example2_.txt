@@ -1,0 +1,10 @@
+P -> K L
+P -> b K L e
+K -> c K
+K -> T V
+T -> t T
+T -> ''
+V -> v V
+V -> ''
+L -> m L
+L -> ''
